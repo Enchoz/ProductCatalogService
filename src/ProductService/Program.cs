@@ -17,9 +17,6 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContextPool<ProductDbContext>(options =>
            options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddControllers();
-//builder.Services.AddFluentValidationAutoValidation();
-
 
 builder.Services.ConfigureInfrastructureService(builder.Configuration);
 

@@ -10,21 +10,18 @@ namespace ProductService.API.DTOs.Responses
         public decimal Price { get; set; }
         public int Quantity { get; set; }
 
-        public ProductDto MapToProductDto(Product product)
+        public void MapToProductDto(Product product)
         {
             if (product == null)
             {
-                return null;
+                return;
             }
 
-            return new ProductDto
-            {
-                Id = product.Id,
-                Name = product.Name,
-                Description = product.Description,
-                Price = product.Price,
-                Quantity = (int)(product.Inventories?.Sum(inventory => inventory.Quantity))
-            };
+            Id = product.Id;
+            Name = product.Name;
+            Description = product.Description;
+            Price = product.Price;
+            Quantity = product.Inventories?.Sum(i => i.Quantity) ?? 0;
         }
 
         internal void MapToProduct(Product existingProduct)
