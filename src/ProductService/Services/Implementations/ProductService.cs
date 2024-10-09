@@ -1,6 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using ProductService.API.DTOs.Requests;
 using ProductService.API.DTOs.Responses;
+using ProductService.API.Shared;
 using ProductService.Domain.Entities;
 using ProductService.Infrastructure.Configration;
 using ProductService.Infrastructure.Interfaces;
@@ -12,17 +14,30 @@ namespace ProductService.Services.Implementations
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ProductDbContext _context;
+        private readonly IValidator<CreateProductDto> _createProductValidator;
+        private readonly IValidator<UpdateProductDto> _updateProductValidator;
 
         public ProductService(IUnitOfWork unitOfWork
                 , ProductDbContext context
+                , IValidator<CreateProductDto> productValidator
+                , IValidator<UpdateProductDto> updateProductValidator
             )
         {
             _unitOfWork = unitOfWork;
             _context = context;
+            _createProductValidator = productValidator;
+            _updateProductValidator = updateProductValidator;
         }
 
-        public async Task<ProductDto> AddProductAsync(CreateProductDto createProductDto)
+
+        public async Task<BaseResponse<ProductDto>> AddProductAsync(CreateProductDto createProductDto)
         {
+            var validationResult = await _createProductValidator.ValidateAsync(createProductDto);
+            if (!validationResult.IsValid)
+            {
+                return BaseResponse<ProductDto>.FailureResult("Validation failed", validationResult.Errors.Select(e => e.ErrorMessage).ToList());
+            }
+
             var product = new Product();
             createProductDto.MapToProduct(product);
 
@@ -32,10 +47,10 @@ namespace ProductService.Services.Implementations
             var productDto = new ProductDto();
             productDto.MapToProductDto(createdProduct);
 
-            return productDto;
+            return BaseResponse<ProductDto>.SuccessResult(productDto, "Product created successfully");
         }
 
-        public async Task<IEnumerable<ProductDto>> GetAllProducts()
+        public async Task<BaseResponse<IEnumerable<ProductDto>>> GetAllProductsAsync()
         {
             var sqlQuery = @"
                 SELECT p.Id, 
@@ -71,26 +86,33 @@ namespace ProductService.Services.Implementations
                 }
             }
 
-            return productDtos;
+            return BaseResponse<IEnumerable<ProductDto>>.SuccessResult(productDtos);
         }
 
-        public async Task<ProductDto> GetProductByIdAsync(int id)
+        public async Task<BaseResponse<ProductDto>> GetProductByIdAsync(int id)
         {
             var product = await _unitOfWork.ProductRepository.SingleOrDefaultAsync(x => x.Id == id);
             if (product == null)
             {
-                throw new KeyNotFoundException("Product not found.");
+                return BaseResponse<ProductDto>.FailureResult($"Product with id {id} not found");
             }
+
             var productDto = new ProductDto();
             productDto.MapToProductDto(product);
-            return productDto;
+            return BaseResponse<ProductDto>.SuccessResult(productDto);
         }
 
-        public async Task<ProductDto> UpdateProductAsync(int id, UpdateProductDto updateProductDto)
+        public async Task<BaseResponse<ProductDto>> UpdateProductAsync(int id, UpdateProductDto updateProductDto)
         {
             if (id != updateProductDto.Id)
             {
-                throw new ArgumentException("Product ID mismatch");
+                return BaseResponse<ProductDto>.FailureResult("Product ID mismatch", null);
+            }
+
+            var validationResult = await _updateProductValidator.ValidateAsync(updateProductDto);
+            if (!validationResult.IsValid)
+            {
+                return BaseResponse<ProductDto>.FailureResult("Validation failed", validationResult.Errors.Select(e => e.ErrorMessage).ToList());
             }
 
             var existingProduct = await _unitOfWork.ProductRepository.SingleOrDefaultAsync(x => x.Id == updateProductDto.Id);
@@ -104,19 +126,22 @@ namespace ProductService.Services.Implementations
             await _unitOfWork.ProductRepository.UpdateAsync(existingProduct);
             await _unitOfWork.CommitAsync();
 
-            return productDto;
+            return BaseResponse<ProductDto>.SuccessResult(productDto, "Product updated successfully");
         }
 
-        public async Task DeleteProductAsync(int id)
+        public async Task<BaseResponse<bool>> DeleteProductAsync(int id)
         {
             var product = await _unitOfWork.ProductRepository.SingleOrDefaultAsync(x => x.Id == id);
             if (product == null)
             {
-                throw new KeyNotFoundException("Product not found.");
+                return BaseResponse<bool>.FailureResult($"Product with id {id} not found");
             }
 
             await _unitOfWork.ProductRepository.DeleteAsync(product);
             await _unitOfWork.CommitAsync();
+
+            return BaseResponse<bool>.SuccessResult(true, "Product deleted successfully");
+
         }
     }
 }
