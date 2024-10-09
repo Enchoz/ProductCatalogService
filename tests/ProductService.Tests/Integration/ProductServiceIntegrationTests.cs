@@ -31,6 +31,31 @@ namespace ProductService.Tests.Integration
         }
 
         [Fact]
+        public async Task GetAllProducts_ShouldReturnEmptyListWhenNoProductsExist()
+        {
+            // Act
+            var result = await _productService.GetAllProductsAsync();
+
+            // Assert
+            Assert.Empty(result.Data);
+        }
+
+        [Fact]
+        public async Task AddProduct_ShouldAddProductToDatabase()
+        {
+            // Arrange
+            var product = new CreateProductDto { Name = "Product 1", Price = 10, Description = "Description 1" };
+
+            // Act
+            await _productService.AddProductAsync(product);
+            var result = await _productService.GetAllProductsAsync();
+
+            // Assert
+            Assert.Single(result.Data);
+            Assert.Equal("Product 1", result.Data.First().Name);
+        }
+
+        [Fact]
         public async Task GetAllProductsAsync_ReturnsAllProducts()
         {
             // Arrange
