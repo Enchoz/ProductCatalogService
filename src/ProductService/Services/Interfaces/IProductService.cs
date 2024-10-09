@@ -1,13 +1,15 @@
-﻿using ProductService.Domain.Entities;
+﻿using ProductService.API.DTOs.Requests;
+using ProductService.API.DTOs.Responses;
+using ProductService.Domain.Entities;
 
 namespace ProductService.Services.Interfaces
 {
     public interface IProductService
     {
-        Task<Product> AddProductAsync(Product product);
+        Task<ProductDto> AddProductAsync(CreateProductDto product);
         Task DeleteProductAsync(int id);
-        Task<IEnumerable<Product>> GetAllProducts();
-        Task<Product> GetProductByIdAsync(int id);
-        Task UpdateProductAsync(Product product);
+        Task<IEnumerable<ProductDto>> GetAllProducts();
+        Task<ProductDto> GetProductByIdAsync(int id);
+        Task<ProductDto> UpdateProductAsync(int id, UpdateProductDto product);
     }
 }

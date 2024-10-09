@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using ProductService.API.DTOs.Requests;
 using ProductService.Domain.Entities;
-using ProductService.Services;
 using ProductService.Services.Interfaces;
 
 namespace ProductService.API.Controllers
@@ -27,40 +27,25 @@ namespace ProductService.API.Controllers
         public async Task<ActionResult<Product>> GetProduct(int id)
         {
             var product = await _productService.GetProductByIdAsync(id);
-            if (product == null)
-            {
-                return NotFound();
-            }
-            return Ok(product);
+            return product == null ? NotFound() : Ok(product);
         }
 
         [HttpPost]
-        public async Task<ActionResult<Product>> CreateProduct([FromBody] Product product)
+        public async Task<ActionResult<Product>> CreateProduct([FromBody] CreateProductDto careteProductDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var createdProduct = await _productService.AddProductAsync(product);
+            var createdProduct = await _productService.AddProductAsync(careteProductDto);
             return CreatedAtAction(nameof(GetProduct), new { id = createdProduct.Id }, createdProduct);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product product)
-        {
-            if (id != product.Id)
-            {
-                return BadRequest("Product ID mismatch");
-            }
-
-            var existingProduct = await _productService.GetProductByIdAsync(id);
-            if (existingProduct == null)
-            {
-                return NotFound();
-            }
-
-            await _productService.UpdateProductAsync(product);
+        public async Task<IActionResult> UpdateProduct(int id, [FromBody] UpdateProductDto updateProductDto)
+        {        
+            await _productService.UpdateProductAsync(id, updateProductDto);
             return NoContent();
         }
 

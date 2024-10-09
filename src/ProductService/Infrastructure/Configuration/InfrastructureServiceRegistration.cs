@@ -8,7 +8,7 @@ namespace ProductService.Infrastructure.Configuration
     {
         public static IServiceCollection ConfigureInfrastructureService(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddScoped<IProductService, Services.ProductService>();
+            services.AddScoped<IProductService, Services.Implementations.ProductService>();
 
 
             services.AddScoped(typeof(IAsyncRepository<>), typeof(AsyncRepository<>));
