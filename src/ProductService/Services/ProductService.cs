@@ -46,7 +46,6 @@ namespace ProductService.Services
 
             existingProduct.Name = product.Name;
             existingProduct.Price = product.Price;
-            existingProduct.Stock = product.Stock;
             existingProduct.Description = product.Description;
 
             await _unitOfWork.ProductRepository.UpdateAsync(existingProduct);
