@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using ProductService.API.DTOs.Requests;
 using ProductService.Domain.Entities;
 using ProductService.Services.Interfaces;
@@ -10,10 +11,17 @@ namespace ProductService.API.Controllers
     public class ProductController : ControllerBase
     {
         private readonly IProductService _productService;
+        private readonly IValidator<CreateProductDto> _createProductValidator;
+        private readonly IValidator<UpdateProductDto> _updateProductValidator;
 
-        public ProductController(IProductService productService)
+        public ProductController(IProductService productService
+            , IValidator<CreateProductDto> productValidator
+            , IValidator<UpdateProductDto> updateProductValidator
+            )
         {
             _productService = productService;
+            _createProductValidator = productValidator;
+            _updateProductValidator = updateProductValidator;
         }
 
         [HttpGet]
