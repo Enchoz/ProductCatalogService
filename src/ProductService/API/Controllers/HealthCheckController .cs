@@ -1,7 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using ProductService.Domain.Entities;
-using ProductService.Services;
-using ProductService.Services.Interfaces;
 
 namespace ProductService.API.Controllers
 {

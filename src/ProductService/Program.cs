@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ProductService.Infrastructure.Configration;
+using ProductService.Infrastructure.Configuration;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,11 +13,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddDbContext<ProductDbContext>(options =>
+builder.Services.AddDbContextPool<ProductDbContext>(options =>
            options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddControllers();
-builder.Services.AddFluentValidationAutoValidation();
+//builder.Services.AddFluentValidationAutoValidation();
+
+
+builder.Services.ConfigureInfrastructureService(builder.Configuration);
 
 // Add controllers and FluentValidation support
 builder.Services.AddControllers().AddFluentValidation(fv =>
@@ -25,6 +29,8 @@ builder.Services.AddControllers().AddFluentValidation(fv =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
+                options.Authority = "https://localhost:5001";
+                options.Audience = "api1";
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -37,14 +43,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 };
             });
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.Authority = "https://localhost:5001";
-        options.Audience = "api1";
-    });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ProductDbContext>();
+    dbContext.Database.EnsureCreated();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -55,12 +61,6 @@ if (app.Environment.IsDevelopment())
 
 }
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-};
-
 app.UseHttpsRedirection();
 app.UseRouting();
 
@@ -69,3 +69,5 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+
+app.Run();
