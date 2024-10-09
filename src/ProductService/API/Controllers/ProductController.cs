@@ -37,20 +37,20 @@ namespace ProductService.API.Controllers
         {           
 
             var response = await _productService.AddProductAsync(careteProductDto);
-            return response.Success ? CreatedAtAction(nameof(GetProduct), new { id = response.Data.Id }, response) : BadRequest(response);
+            return response.IsSuccess ? CreatedAtAction(nameof(GetProduct), new { id = response.Data.Id }, response) : BadRequest(response);
         }
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateProduct(int id, [FromBody] UpdateProductDto updateProductDto)
         {
             var response = await _productService.UpdateProductAsync(id, updateProductDto);
-            return response.Success ? Ok(response) : BadRequest(response);
+            return response.IsSuccess ? Ok(response) : BadRequest(response);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {         
             var response = await _productService.DeleteProductAsync(id);
-            return response.Success ? Ok(response) : BadRequest(response);
+            return response.IsSuccess ? Ok(response) : BadRequest(response);
         }
     }
 }

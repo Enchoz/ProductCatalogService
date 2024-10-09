@@ -2,14 +2,14 @@
 {
     public class BaseResponse<T>
     {
-        public bool Success { get; set; }
+        public bool IsSuccess { get; set; }
         public string Message { get; set; }
         public T Data { get; set; }
         public List<string> Errors { get; set; }
 
         public BaseResponse()
         {
-            Success = true;
+            IsSuccess = true;
             Errors = new List<string>();
         }
 
@@ -22,7 +22,7 @@
         {
             return new BaseResponse<T>
             {
-                Success = false,
+                IsSuccess = false,
                 Message = message,
                 Errors = errors ?? new List<string>()
             };
