@@ -3,6 +3,10 @@ using ProductService.API.DTOs.Requests;
 using ProductService.Infrastructure.Configration;
 using ProductService.API.Validators;
 using ProductService.Infrastructure.Repositories;
+using Microsoft.Extensions.Caching.Distributed;
+using Moq;
+using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace ProductService.Tests.Integration
 {
@@ -21,38 +25,29 @@ namespace ProductService.Tests.Integration
             var unitOfWork = new UnitOfWork(_context);
             var createProductValidator = new CreateProductDtoValidator();
             var updateProductValidator = new UpdateProductDtoValidator();
+            var _mockCache = new Mock<IDistributedCache>();
+
 
             _productService = new Services.Implementations.ProductService(
                 _context,
                 createProductValidator,
                 updateProductValidator,
-                unitOfWork
+                unitOfWork,
+                _mockCache.Object
             );
         }
 
         [Fact]
         public async Task GetAllProducts_ShouldReturnEmptyListWhenNoProductsExist()
         {
-            // Act
-            var result = await _productService.GetAllProductsAsync();
-
-            // Assert
-            Assert.Empty(result.Data);
-        }
-
-        [Fact]
-        public async Task AddProduct_ShouldAddProductToDatabase()
-        {
-            // Arrange
-            var product = new CreateProductDto { Name = "Product 1", Price = 10, Description = "Description 1" };
+            //Arrange
+            int page = 1;
 
             // Act
-            await _productService.AddProductAsync(product);
-            var result = await _productService.GetAllProductsAsync();
+            var result = await _productService.GetAllProductsAsync(page);
 
             // Assert
-            Assert.Single(result.Data);
-            Assert.Equal("Product 1", result.Data.First().Name);
+            Assert.Empty(result.Data.Items);
         }
 
         [Fact]
@@ -60,13 +55,32 @@ namespace ProductService.Tests.Integration
         {
             // Arrange
             await SeedTestData();
+            var page = 1;
 
             // Act
-            var result = await _productService.GetAllProductsAsync();
+            var result = await _productService.GetAllProductsAsync(page);
+
+            Console.WriteLine($"Result: {JsonConvert.SerializeObject(result)}");
 
             // Assert
             Assert.True(result.IsSuccess);
-            Assert.Equal(2, result.Data.Count());
+            Assert.Equal(2, result.Data.Items.Count());
+        }
+
+        [Fact]
+        public async Task AddProduct_ShouldAddProductToDatabase()
+        {
+            // Arrange
+            var product = new CreateProductDto { Name = "Product 1", Price = 10, Description = "Description 1" };
+            int page = 1;
+
+            // Act
+            await _productService.AddProductAsync(product);
+            var result = await _productService.GetAllProductsAsync(page);
+
+            // Assert
+            Assert.Single(result.Data.Items);
+            Assert.Equal("Product 1", result.Data.Items.First().Name);
         }
 
         [Fact]
