@@ -15,6 +15,8 @@ namespace ProductService.Domain.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal Price { get; set; }
 
+        [Required]
+        [MaxLength(1000)]
         public string Description { get; set; }
 
         public virtual ICollection<Inventory> Inventories { get; set; }

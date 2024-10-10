@@ -53,7 +53,7 @@ namespace ProductService.Tests.Unit
             // Arrange
             var context = CreateDbContext();
             var productId = 1;
-            var product = new Product { Id = productId, Name = "Test Product" };
+            var product = new Product { Id = productId, Name = "Test Product", Description = "Test Desciption" };
             var productService = new Services.Implementations.ProductService(
                 context, _mockCreateProductValidator.Object, _mockUpdateProductValidator.Object, _mockUnitOfWork.Object, _mockCache.Object
             );
@@ -75,7 +75,7 @@ namespace ProductService.Tests.Unit
             // Arrange
             var context = CreateDbContext();
             var productId = 1;
-            var updateProductDto = new UpdateProductDto { Id = productId, Name = "Updated Product", Price = 15.99m };
+            var updateProductDto = new UpdateProductDto { Id = productId, Name = "Updated Product", Price = 15.99m, Description = "Test Desciption" };
             var productService = new Services.Implementations.ProductService(
                context, _mockCreateProductValidator.Object, _mockUpdateProductValidator.Object, _mockUnitOfWork.Object, _mockCache.Object
            );
