@@ -1,5 +1,5 @@
 ﻿using System.Text.Json;
-using ProductService.API.Shared;
+using ProductService.API.Shared.Responses;
 
 namespace ProductService.API.Middleware
 {

@@ -1,4 +1,4 @@
-﻿namespace ProductService.API.Shared
+﻿namespace ProductService.API.Shared.Responses
 {
     public class BaseResponse<T>
     {

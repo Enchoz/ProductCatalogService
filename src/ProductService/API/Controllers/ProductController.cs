@@ -2,6 +2,7 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using ProductService.API.DTOs.Requests;
+using ProductService.API.Shared.DTOs;
 using ProductService.Domain.Entities;
 using ProductService.Services.Interfaces;
 
@@ -20,13 +21,13 @@ namespace ProductService.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        public async Task<ActionResult<PagedResult<Product>>> GetProducts(int pageNumber = 1)
         {
-            var products = await _productService.GetAllProductsAsync();
+            var products = await _productService.GetAllProductsAsync(pageNumber);
             return Ok(products);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         public async Task<ActionResult<Product>> GetProduct(int id)
         {
             return Ok(await _productService.GetProductByIdAsync(id));

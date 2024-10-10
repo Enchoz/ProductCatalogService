@@ -1,13 +1,17 @@
 ﻿using FluentValidation;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using ProductService.API.DTOs.Requests;
 using ProductService.API.DTOs.Responses;
-using ProductService.API.Shared;
+using ProductService.API.Shared.DTOs;
+using ProductService.API.Shared.Responses;
 using ProductService.Domain.Entities;
 using ProductService.Infrastructure.Configration;
 using ProductService.Infrastructure.Interfaces;
 using ProductService.Services.Interfaces;
 using Serilog;
+using System.Text.Json;
 using ILogger = Serilog.ILogger;
 
 namespace ProductService.Services.Implementations
@@ -19,38 +23,112 @@ namespace ProductService.Services.Implementations
         private readonly IValidator<UpdateProductDto> _updateProductValidator;
         private readonly ILogger _logger;
         private readonly IUnitOfWork _unitOfWork;
-
+        private readonly IDistributedCache _cache;
+        private const int PageSize = 50;
 
         public ProductService(
-                ProductDbContext context
-                , IValidator<CreateProductDto> productValidator
-                , IValidator<UpdateProductDto> updateProductValidator
-                , IUnitOfWork unitOfWork
-            )
+            ProductDbContext context,
+            IValidator<CreateProductDto> productValidator,
+            IValidator<UpdateProductDto> updateProductValidator,
+            IUnitOfWork unitOfWork,
+            IDistributedCache cache)
         {
             _unitOfWork = unitOfWork;
             _context = context;
             _createProductValidator = productValidator;
             _updateProductValidator = updateProductValidator;
             _logger = Log.ForContext<ProductService>();
+            _cache = cache;
         }
 
+        //public async Task<BaseResponse<PagedResult<ProductDto>>> GetAllProductsAsync(int page = 1)
+        //{
+        //    try
+        //    {
+        //        string cacheKey = $"products_page_{page}";
+        //        string cachedResult = await _cache.GetStringAsync(cacheKey);
 
-        public async Task<BaseResponse<IEnumerable<ProductDto>>> GetAllProductsAsync()
+        //        if (!string.IsNullOrEmpty(cachedResult))
+        //        {
+        //            var cachedProducts = JsonSerializer.Deserialize<PagedResult<ProductDto>>(cachedResult);
+        //            return BaseResponse<PagedResult<ProductDto>>.SuccessResult(cachedProducts);
+        //        }
+
+        //        var totalItems = await _context.Products.CountAsync();
+        //        var totalPages = (int)Math.Ceiling(totalItems / (double)PageSize);
+
+        //        var sqlQuery = @"
+        //            SELECT p.Id, 
+        //                   p.Name, 
+        //                   p.Description, 
+        //                   p.Price,
+        //                   ISNULL((SELECT SUM(i.Quantity) FROM Inventories i WHERE i.ProductId = p.Id), 0) AS Quantity
+        //            FROM Products p
+        //            ORDER BY p.Id
+        //            OFFSET @Skip ROWS
+        //            FETCH NEXT @PageSize ROWS ONLY";
+
+        //        var productDtos = await _context.Products
+        //            .FromSqlRaw(sqlQuery,
+        //                new SqlParameter("@Skip", (page - 1) * PageSize),
+        //                new SqlParameter("@PageSize", PageSize))
+        //            .Select(p => new ProductDto
+        //            {
+        //                Id = p.Id,
+        //                Name = p.Name,
+        //                Description = p.Description,
+        //                Price = p.Price,
+        //                Quantity = p.Inventories != null && p.Inventories.Any()
+        //                           ? p.Inventories.Sum(i => i.Quantity)
+        //                           : 0
+        //            })
+        //            .ToListAsync();
+
+        //        var pagedResult = new PagedResult<ProductDto>
+        //        {
+        //            Items = productDtos,
+        //            TotalItems = totalItems,
+        //            PageNumber = page,
+        //            PageSize = PageSize
+        //        };
+
+        //        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(pagedResult), new DistributedCacheEntryOptions
+        //        {
+        //            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+        //        });
+
+        //        _logger.Information("Retrieved {Count} products for page {Page}", productDtos.Count, page);
+        //        return BaseResponse<PagedResult<ProductDto>>.SuccessResult(pagedResult);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.Error(ex, "Error occurred while retrieving products for page {Page}", page);
+        //        return BaseResponse<PagedResult<ProductDto>>.FailureResult("An error occurred while retrieving products");
+        //    }
+        //}
+
+
+        public async Task<BaseResponse<PagedResult<ProductDto>>> GetAllProductsAsync(int page = 1)
         {
-
             try
-            {            
-                var sqlQuery = @"
-                    SELECT p.Id, 
-                           p.Name, 
-                           p.Description, 
-                           p.Price,
-                           ISNULL((SELECT SUM(i.Quantity) FROM Inventories i WHERE i.ProductId = p.Id), 0) AS Quantity
-                    FROM Products p";
+            {
+                string cacheKey = $"products_page_{page}";
+                string cachedResult = await _cache.GetStringAsync(cacheKey);
+
+                if (!string.IsNullOrEmpty(cachedResult))
+                {
+                    var cachedProducts = JsonSerializer.Deserialize<PagedResult<ProductDto>>(cachedResult);
+                    return BaseResponse<PagedResult<ProductDto>>.SuccessResult(cachedProducts);
+                }
+
+                var totalItems = await _context.Products.CountAsync();
+                var totalPages = (int)Math.Ceiling(totalItems / (double)PageSize);
 
                 var productDtos = await _context.Products
-                    .FromSqlRaw(sqlQuery)
+                    .Include(p => p.Inventories)
+                    .OrderBy(p => p.Id)
+                    .Skip((page - 1) * PageSize)
+                    .Take(PageSize)
                     .Select(p => new ProductDto
                     {
                         Id = p.Id,
@@ -63,21 +141,43 @@ namespace ProductService.Services.Implementations
                     })
                     .ToListAsync();
 
+                var pagedResult = new PagedResult<ProductDto>
+                {
+                    Items = productDtos,
+                    TotalItems = totalItems,
+                    PageNumber = page,
+                    PageSize = PageSize
+                };
 
-                _logger.Information("Retrieved {Count} products", productDtos.Count);
-                return BaseResponse<IEnumerable<ProductDto>>.SuccessResult(productDtos);
+                await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(pagedResult), new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+                });
+
+                _logger.Information("Retrieved {Count} products for page {Page}", productDtos.Count, page);
+                return BaseResponse<PagedResult<ProductDto>>.SuccessResult(pagedResult);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error occurred while retrieving all products");
-                return BaseResponse<IEnumerable<ProductDto>>.FailureResult("An error occurred while retrieving products");
+                _logger.Error(ex, "Error occurred while retrieving products for page {Page}", page);
+                return BaseResponse<PagedResult<ProductDto>>.FailureResult("An error occurred while retrieving products");
             }
         }
+
 
         public async Task<BaseResponse<ProductDto>> GetProductByIdAsync(int id)
         {
             try
-            {     
+            {
+                string cacheKey = $"product_{id}";
+                string cachedResult = await _cache.GetStringAsync(cacheKey);
+
+                if (!string.IsNullOrEmpty(cachedResult))
+                {
+                    var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cachedResult);
+                    return BaseResponse<ProductDto>.SuccessResult(cachedProduct);
+                }
+
                 var product = await _unitOfWork.ProductRepository.SingleOrDefaultAsync(x => x.Id == id);
                 if (product == null)
                 {
@@ -88,8 +188,13 @@ namespace ProductService.Services.Implementations
                 var productDto = new ProductDto();
                 productDto.MapToProductDto(product);
 
+                await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(productDto), new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
+                });
+
                 _logger.Information("Retrieved product {@Product}", productDto);
-                return BaseResponse<ProductDto>.SuccessResult(productDto);        
+                return BaseResponse<ProductDto>.SuccessResult(productDto);
             }
             catch (Exception ex)
             {
@@ -118,6 +223,9 @@ namespace ProductService.Services.Implementations
                 var productDto = new ProductDto();
                 productDto.MapToProductDto(createdProduct);
 
+                // Invalidate cache for product list
+                await _cache.RemoveAsync("products_page_1");
+
                 _logger.Information("Created new product {@Product}", productDto);
                 return BaseResponse<ProductDto>.SuccessResult(productDto, "Product created successfully");
             }
@@ -126,7 +234,6 @@ namespace ProductService.Services.Implementations
                 _logger.Error(ex, "Error occurred while creating product {@ProductDto}", createProductDto);
                 return BaseResponse<ProductDto>.FailureResult("An error occurred while creating the product");
             }
-           
         }
 
         public async Task<BaseResponse<ProductDto>> UpdateProductAsync(int id, UpdateProductDto updateProductDto)
@@ -153,11 +260,17 @@ namespace ProductService.Services.Implementations
                     return BaseResponse<ProductDto>.FailureResult($"Product with id {id} not found");
                 }
 
-                var productDto = new ProductDto();
-                productDto.MapToProductDto(existingProduct);
+                updateProductDto.MapToProduct(existingProduct);
 
                 await _unitOfWork.ProductRepository.UpdateAsync(existingProduct);
                 await _unitOfWork.CommitAsync();
+
+                var productDto = new ProductDto();
+                productDto.MapToProductDto(existingProduct);
+
+                // Invalidate cache for this product and product list
+                await _cache.RemoveAsync($"product_{id}");
+                await _cache.RemoveAsync("products_page_1");
 
                 _logger.Information("Updated product {@Product}", productDto);
                 return BaseResponse<ProductDto>.SuccessResult(productDto, "Product updated successfully");
@@ -183,6 +296,10 @@ namespace ProductService.Services.Implementations
                 await _unitOfWork.ProductRepository.DeleteAsync(product);
                 await _unitOfWork.CommitAsync();
 
+                // Invalidate cache for this product and product list
+                await _cache.RemoveAsync($"product_{id}");
+                await _cache.RemoveAsync("products_page_1");
+
                 _logger.Information("Deleted product with ID {ProductId}", id);
                 return BaseResponse<bool>.SuccessResult(true, "Product deleted successfully");
             }
@@ -190,7 +307,7 @@ namespace ProductService.Services.Implementations
             {
                 _logger.Error(ex, "Error occurred while deleting product with ID {ProductId}", id);
                 return BaseResponse<bool>.FailureResult("An error occurred while deleting the product");
-            }        
+            }
         }
     }
 }

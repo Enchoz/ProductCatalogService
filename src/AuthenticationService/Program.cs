@@ -18,23 +18,23 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>()
     .AddEntityFrameworkStores<AppIdentityDbContext>()
     .AddDefaultTokenProviders();
 
-builder.Services.AddIdentityServer()
-    .AddDeveloperSigningCredential()
-    .AddInMemoryApiScopes(new List<ApiScope>
-    {
-            new ApiScope("api1", "My API")
-    })
-    .AddInMemoryClients(new List<Client>
-    {
-            new Client
-            {
-                ClientId = "client",
-                AllowedGrantTypes = GrantTypes.ClientCredentials,
-                ClientSecrets = { new Secret("secret".Sha256()) },
-                AllowedScopes = { "api1" }
-            }
-    })
-    .AddAspNetIdentity<IdentityUser>();
+//builder.Services.AddIdentityServer()
+//    .AddDeveloperSigningCredential()
+//    .AddInMemoryApiScopes(new List<ApiScope>
+//    {
+//            new ApiScope("api1", "My API")
+//    })
+//    .AddInMemoryClients(new List<Client>
+//    {
+//            new Client
+//            {
+//                ClientId = "client",
+//                AllowedGrantTypes = GrantTypes.ClientCredentials,
+//                ClientSecrets = { new Secret("secret".Sha256()) },
+//                AllowedScopes = { "api1" }
+//            }
+//    })
+//    .AddAspNetIdentity<IdentityUser>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
