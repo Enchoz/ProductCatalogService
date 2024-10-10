@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using ProductService.API.DTOs.Requests;
@@ -12,6 +11,7 @@ using ProductService.Infrastructure.Interfaces;
 using ProductService.Services.Interfaces;
 using Serilog;
 using System.Text.Json;
+using System.Text.Encodings.Web;
 using ILogger = Serilog.ILogger;
 
 namespace ProductService.Services.Implementations
@@ -41,77 +41,15 @@ namespace ProductService.Services.Implementations
             _cache = cache;
         }
 
-        //public async Task<BaseResponse<PagedResult<ProductDto>>> GetAllProductsAsync(int page = 1)
-        //{
-        //    try
-        //    {
-        //        string cacheKey = $"products_page_{page}";
-        //        string cachedResult = await _cache.GetStringAsync(cacheKey);
-
-        //        if (!string.IsNullOrEmpty(cachedResult))
-        //        {
-        //            var cachedProducts = JsonSerializer.Deserialize<PagedResult<ProductDto>>(cachedResult);
-        //            return BaseResponse<PagedResult<ProductDto>>.SuccessResult(cachedProducts);
-        //        }
-
-        //        var totalItems = await _context.Products.CountAsync();
-        //        var totalPages = (int)Math.Ceiling(totalItems / (double)PageSize);
-
-        //        var sqlQuery = @"
-        //            SELECT p.Id, 
-        //                   p.Name, 
-        //                   p.Description, 
-        //                   p.Price,
-        //                   ISNULL((SELECT SUM(i.Quantity) FROM Inventories i WHERE i.ProductId = p.Id), 0) AS Quantity
-        //            FROM Products p
-        //            ORDER BY p.Id
-        //            OFFSET @Skip ROWS
-        //            FETCH NEXT @PageSize ROWS ONLY";
-
-        //        var productDtos = await _context.Products
-        //            .FromSqlRaw(sqlQuery,
-        //                new SqlParameter("@Skip", (page - 1) * PageSize),
-        //                new SqlParameter("@PageSize", PageSize))
-        //            .Select(p => new ProductDto
-        //            {
-        //                Id = p.Id,
-        //                Name = p.Name,
-        //                Description = p.Description,
-        //                Price = p.Price,
-        //                Quantity = p.Inventories != null && p.Inventories.Any()
-        //                           ? p.Inventories.Sum(i => i.Quantity)
-        //                           : 0
-        //            })
-        //            .ToListAsync();
-
-        //        var pagedResult = new PagedResult<ProductDto>
-        //        {
-        //            Items = productDtos,
-        //            TotalItems = totalItems,
-        //            PageNumber = page,
-        //            PageSize = PageSize
-        //        };
-
-        //        await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(pagedResult), new DistributedCacheEntryOptions
-        //        {
-        //            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
-        //        });
-
-        //        _logger.Information("Retrieved {Count} products for page {Page}", productDtos.Count, page);
-        //        return BaseResponse<PagedResult<ProductDto>>.SuccessResult(pagedResult);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.Error(ex, "Error occurred while retrieving products for page {Page}", page);
-        //        return BaseResponse<PagedResult<ProductDto>>.FailureResult("An error occurred while retrieving products");
-        //    }
-        //}
-
-
         public async Task<BaseResponse<PagedResult<ProductDto>>> GetAllProductsAsync(int page = 1)
         {
             try
             {
+                if (page < 1)
+                {
+                    return BaseResponse<PagedResult<ProductDto>>.FailureResult("Invalid page number");
+                }
+
                 string cacheKey = $"products_page_{page}";
                 string cachedResult = await _cache.GetStringAsync(cacheKey);
 
@@ -132,8 +70,8 @@ namespace ProductService.Services.Implementations
                     .Select(p => new ProductDto
                     {
                         Id = p.Id,
-                        Name = p.Name,
-                        Description = p.Description,
+                        Name = HtmlEncoder.Default.Encode(p.Name),
+                        Description = HtmlEncoder.Default.Encode(p.Description),
                         Price = p.Price,
                         Quantity = p.Inventories != null && p.Inventories.Any()
                                    ? p.Inventories.Sum(i => i.Quantity)
@@ -164,11 +102,15 @@ namespace ProductService.Services.Implementations
             }
         }
 
-
         public async Task<BaseResponse<ProductDto>> GetProductByIdAsync(int id)
         {
             try
             {
+                if (id <= 0)
+                {
+                    return BaseResponse<ProductDto>.FailureResult("Invalid product ID");
+                }
+
                 string cacheKey = $"product_{id}";
                 string cachedResult = await _cache.GetStringAsync(cacheKey);
 
@@ -286,6 +228,11 @@ namespace ProductService.Services.Implementations
         {
             try
             {
+                if (id <= 0)
+                {
+                    return BaseResponse<bool>.FailureResult("Invalid product ID");
+                }
+
                 var product = await _unitOfWork.ProductRepository.SingleOrDefaultAsync(x => x.Id == id);
                 if (product == null)
                 {

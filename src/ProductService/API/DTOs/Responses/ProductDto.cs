@@ -1,4 +1,5 @@
 ﻿using ProductService.Domain.Entities;
+using System.Text.Encodings.Web;
 
 namespace ProductService.API.DTOs.Responses
 {
@@ -18,8 +19,8 @@ namespace ProductService.API.DTOs.Responses
             }
 
             Id = product.Id;
-            Name = product.Name;
-            Description = product.Description;
+            Name = HtmlEncoder.Default.Encode(product.Name);
+            Description = HtmlEncoder.Default.Encode(product.Description);
             Price = product.Price;
             Quantity = product.Inventories?.Sum(i => i.Quantity) ?? 0;
         }
