@@ -6,14 +6,25 @@ using ProductService.API.Middleware;
 using ProductService.Infrastructure.Configration;
 using ProductService.Infrastructure.Configuration;
 using System.Text;
+using Microsoft.OpenApi.Models;
+using System.Reflection;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Product API", Version = "v1" });
+    c.EnableAnnotations();
 
+    // Enable XML comments
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+});
 builder.Services.AddDbContextPool<ProductDbContext>(options =>
            options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -40,6 +51,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key"))
                 };
             });
+
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetValue<string>("Redis:Configuration");
+    options.InstanceName = builder.Configuration.GetValue<string>("Redis:InstanceName");
+});
 
 
 var app = builder.Build();

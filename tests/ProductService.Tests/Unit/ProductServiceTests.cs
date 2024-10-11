@@ -126,20 +126,22 @@ namespace ProductService.Tests.Unit
                 context, _mockCreateProductValidator.Object, _mockUpdateProductValidator.Object, _mockUnitOfWork.Object, _mockCache.Object
             );
 
-            _mockUnitOfWork.Setup(uow => uow.ProductRepository.GetAllAsync(true))
-                .ReturnsAsync(context.Products.ToList());
-
-            var pageNumber = 1;
+            var request = new GetProductsRequest
+            {
+                PageNumber = 1,
+                PageSize = 10 
+            };
 
             // Act
-            var result = await productService.GetAllProductsAsync(pageNumber);
+            var result = await productService.GetAllProductsAsync(request);
 
             // Assert
             Assert.True(result.IsSuccess);
             Assert.Equal(2, result.Data.Items.Count());
-            Assert.Equal("Product 1", result.Data.Items.First().Name);
+            Assert.Equal(1, result.Data.PageNumber);
+            Assert.Equal(10, result.Data.PageSize);
+            Assert.Equal(1, result.Data.TotalPages);
         }
-
         [Fact]
         public async Task DeleteProductAsync_ExistingProduct_ReturnsSuccess()
         {
