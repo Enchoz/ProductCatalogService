@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using ProductService.API.DTOs.Requests;
 using ProductService.API.DTOs.Responses;
 using ProductService.API.DTOs.Swagger;
-using ProductService.API.Shared.DTOs;
+using ProductService.API.Shared.Helpers;
 using ProductService.API.Shared.Responses;
 using ProductService.Services.Interfaces;
 using Swashbuckle.AspNetCore.Annotations;
@@ -29,10 +29,17 @@ namespace ProductService.API.Controllers
             _productService = productService;
         }
 
-        [HttpGet]
-        public async Task<ActionResult<PagedResult<Product>>> GetProducts(int pageNumber = 1)
+        /// Retrieves a paginated list of products.
+        /// </summary>
+        /// <param name="pageNumber">The page number for pagination (default is 1).</param>
+        /// <param name="pageSize">The page size for pagination (default is 10).</param>
+        /// <returns>A paginated list of products.</returns>
+        [HttpGet("products")]
+        [SwaggerOperation(Summary = "Get all products", Description = "Retrieves a paginated list of all products.")]
+        [SwaggerResponse(200, "Successfully retrieved the list of products", typeof(PagedResult<ProductDto>))]
+        public async Task<ActionResult<PagedResult<ProductDto>>> GetProducts([FromQuery] GetProductsRequest request)
         {
-            var products = await _productService.GetAllProductsAsync(pageNumber);
+            var products = await _productService.GetAllProductsAsync(request);
             return Ok(products);
         }
 

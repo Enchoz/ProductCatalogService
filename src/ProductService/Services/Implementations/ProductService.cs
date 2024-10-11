@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using ProductService.API.DTOs.Requests;
 using ProductService.API.DTOs.Responses;
-using ProductService.API.Shared.DTOs;
 using ProductService.API.Shared.Responses;
 using ProductService.Domain.Entities;
 using ProductService.Infrastructure.Configration;
@@ -13,6 +12,8 @@ using Serilog;
 using System.Text.Json;
 using System.Text.Encodings.Web;
 using ILogger = Serilog.ILogger;
+using ProductService.API.Validators;
+using ProductService.API.Shared.Helpers;
 
 namespace ProductService.Services.Implementations
 {
@@ -24,7 +25,6 @@ namespace ProductService.Services.Implementations
         private readonly ILogger _logger;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IDistributedCache _cache;
-        private const int PageSize = 50;
 
         public ProductService(
             ProductDbContext context,
@@ -41,16 +41,21 @@ namespace ProductService.Services.Implementations
             _cache = cache;
         }
 
-        public async Task<BaseResponse<PagedResult<ProductDto>>> GetAllProductsAsync(int page = 1)
+        public async Task<BaseResponse<PagedResult<ProductDto>>> GetAllProductsAsync(GetProductsRequest request)
         {
             try
             {
-                if (page < 1)
+                var validator = new GetProductsRequestValidator();
+                var validationResult = validator.Validate(request);
+
+                if (!validationResult.IsValid)
                 {
-                    return BaseResponse<PagedResult<ProductDto>>.FailureResult("Invalid page number");
+                    return BaseResponse<PagedResult<ProductDto>>.FailureResult(
+                        string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage))
+                    );
                 }
 
-                string cacheKey = $"products_page_{page}";
+                string cacheKey = $"products_page_{request.PageNumber}_size_{request.PageSize}";
                 string cachedResult = await _cache.GetStringAsync(cacheKey);
 
                 if (!string.IsNullOrEmpty(cachedResult))
@@ -59,14 +64,26 @@ namespace ProductService.Services.Implementations
                     return BaseResponse<PagedResult<ProductDto>>.SuccessResult(cachedProducts);
                 }
 
-                var totalItems = await _context.Products.CountAsync();
-                var totalPages = (int)Math.Ceiling(totalItems / (double)PageSize);
+                var query = _context.Products.AsQueryable();
 
-                var productDtos = await _context.Products
+                if (!string.IsNullOrWhiteSpace(request.Name))
+                {
+                    query = query.Where(p => p.Name.Contains(request.Name));
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Description))
+                {
+                    query = query.Where(p => p.Description.Contains(request.Description));
+                }
+
+                var totalItems = await query.CountAsync();
+                var totalPages = (int)Math.Ceiling(totalItems / (double)request.PageSize);
+
+                var productDtos = await query
                     .Include(p => p.Inventories)
                     .OrderBy(p => p.Id)
-                    .Skip((page - 1) * PageSize)
-                    .Take(PageSize)
+                    .Skip((request.PageNumber - 1) * request.PageSize)
+                    .Take(request.PageSize)
                     .Select(p => new ProductDto
                     {
                         Id = p.Id,
@@ -79,25 +96,19 @@ namespace ProductService.Services.Implementations
                     })
                     .ToListAsync();
 
-                var pagedResult = new PagedResult<ProductDto>
-                {
-                    Items = productDtos,
-                    TotalItems = totalItems,
-                    PageNumber = page,
-                    PageSize = PageSize
-                };
+                var pagedResult = new PagedResult<ProductDto>(productDtos.AsQueryable(), request.PageNumber, request.PageSize, totalItems);      
 
                 await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(pagedResult), new DistributedCacheEntryOptions
                 {
                     AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
                 });
 
-                _logger.Information("Retrieved {Count} products for page {Page}", productDtos.Count, page);
+                _logger.Information("Retrieved {Count} products for page {Page} and size {Size}", productDtos.Count, request.PageNumber, request.PageSize);
                 return BaseResponse<PagedResult<ProductDto>>.SuccessResult(pagedResult);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error occurred while retrieving products for page {Page}", page);
+                _logger.Error(ex, "Error occurred while retrieving products for page {Page} and size {Size}", request.PageNumber, request.PageSize);
                 return BaseResponse<PagedResult<ProductDto>>.FailureResult("An error occurred while retrieving products");
             }
         }
