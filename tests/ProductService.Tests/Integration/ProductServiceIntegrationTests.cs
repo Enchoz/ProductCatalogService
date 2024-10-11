@@ -40,14 +40,23 @@ namespace ProductService.Tests.Integration
         [Fact]
         public async Task GetAllProducts_ShouldReturnEmptyListWhenNoProductsExist()
         {
-            //Arrange
-            int page = 1;
+            // Arrange
+            var request = new GetProductsRequest
+            {
+                PageNumber = 1,
+                PageSize = 10
+            };
 
             // Act
-            var result = await _productService.GetAllProductsAsync(page);
+            var result = await _productService.GetAllProductsAsync(request);
 
             // Assert
+            Assert.True(result.IsSuccess);
             Assert.Empty(result.Data.Items);
+            Assert.Equal(0, result.Data.TotalCount);
+            Assert.Equal(1, result.Data.PageNumber); 
+            Assert.Equal(10, result.Data.PageSize);
+            Assert.Equal(0, result.Data.TotalPages);]
         }
 
         [Fact]
@@ -55,16 +64,21 @@ namespace ProductService.Tests.Integration
         {
             // Arrange
             await SeedTestData();
-            var page = 1;
+            var request = new GetProductsRequest
+            {
+                PageNumber = 1,
+                PageSize = 10
+            };
 
             // Act
-            var result = await _productService.GetAllProductsAsync(page);
-
-            Console.WriteLine($"Result: {JsonConvert.SerializeObject(result)}");
+            var result = await _productService.GetAllProductsAsync(request);
 
             // Assert
             Assert.True(result.IsSuccess);
             Assert.Equal(2, result.Data.Items.Count());
+            Assert.Equal(1, result.Data.PageNumber);
+            Assert.Equal(10, result.Data.PageSize);
+            Assert.Equal(1, result.Data.TotalPages);
         }
 
         [Fact]
@@ -72,16 +86,26 @@ namespace ProductService.Tests.Integration
         {
             // Arrange
             var product = new CreateProductDto { Name = "Product 1", Price = 10, Description = "Description 1" };
-            int page = 1;
+            var pageNumber = 1;
+            var pageSize = 10;
 
             // Act
             await _productService.AddProductAsync(product);
-            var result = await _productService.GetAllProductsAsync(page);
+
+            var request = new GetProductsRequest
+            {
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            var result = await _productService.GetAllProductsAsync(request);
 
             // Assert
+            Assert.True(result.IsSuccess);
             Assert.Single(result.Data.Items);
             Assert.Equal("Product 1", result.Data.Items.First().Name);
         }
+
 
         [Fact]
         public async Task AddProductAsync_AddsProductToDatabase()
