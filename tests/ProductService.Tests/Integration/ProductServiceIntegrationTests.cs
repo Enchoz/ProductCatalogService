@@ -56,7 +56,7 @@ namespace ProductService.Tests.Integration
             Assert.Equal(0, result.Data.TotalCount);
             Assert.Equal(1, result.Data.PageNumber); 
             Assert.Equal(10, result.Data.PageSize);
-            Assert.Equal(0, result.Data.TotalPages);]
+            Assert.Equal(0, result.Data.TotalPages);
         }
 
         [Fact]
