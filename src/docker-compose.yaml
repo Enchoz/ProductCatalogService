@@ -1,0 +1,60 @@
+services:
+  # productdb:
+  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #   environment:
+  #     SA_PASSWORD: "Djxtian20"
+  #     ACCEPT_EULA: "Y"
+  #     MSSQL_PID: "Express"
+  #     MSSQL_SA_PASSWORD: "Djxtian20"  # Define your password here
+  #   ports:
+  #     - "1433:1433"  # Use "1434:1433" if port 1433 is already in use
+  #   volumes:
+  #     - productdb-data:/var/opt/mssql
+    # healthcheck:
+    #   test: ["CMD", "sqlcmd", "-S", "localhost,1433", "-U", "sa", "-P", "Djxtian20", "-Q", "SELECT 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
+    # healthcheck:
+    #   test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Djxtian20 -Q 'SELECT 1' || exit 1"]
+    #   interval: 10s
+    #   retries: 10
+    #   start_period: 10s
+    #   timeout: 3s
+    # networks:
+    #   - app-network
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    # networks:
+    #   - app-network
+
+  product-service:
+    build:
+      context: ./ProductService  # Change context to the ProductService folder
+      dockerfile: Dockerfile      # Keep dockerfile name as it is in the ProductService folder
+    # command: ["./wait-for-it.sh", "productdb:1433", "--", "dotnet", "ProductService.dll"]
+    ports:
+      - "8081:8080"  # Map host port 8081 to container port 8080 # Adjust as necessary for your application
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__ProductDB=Server=host.docker.internal,1433;Database=ProductDb;User Id=sa;Password=Djxtian20;
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      # - productdb
+      - redis
+    # networks:
+    #   - app-network
+
+# networks:
+#   app-network:
+#     driver: bridge
+
+networks:
+  default:
+    name: product-network
+
+volumes:
+  productdb-data:
